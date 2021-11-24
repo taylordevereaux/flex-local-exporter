@@ -17,47 +17,65 @@ do
         continue;
     }
 
-    var files = Directory.GetFiles(directory, "*.properties");
-
-    if (files.Length <= 0)
-    {
-        Console.WriteLine("No *.properties files found");
-        continue;
-    }
-    
     DataTable data = new DataTable();
     data.Columns.Add("Source", typeof(string));
     data.Columns.Add("Key", typeof(string));
-    data.Columns.Add("Value", typeof(string));
 
-    foreach (var file in files)
+    var fileNames = Directory
+        .GetFiles(directory, "*.properties", SearchOption.AllDirectories)
+        .Select(x => new FileInfo(x).Name)
+        .Distinct()
+        .ToList();
+
+    var directories = Directory.GetDirectories(directory);
+
+    foreach (var fileName in fileNames)
     {
-        var info = new FileInfo(file);
-        var lines = File.ReadAllLines(file);
         
-        lines = lines
-            .Skip(1)
-            .Where(x => !String.IsNullOrWhiteSpace(x)
-                && !x.TrimStart().StartsWith("#"))
-            .ToArray();
-
-        string source = info.Name.Replace(".properties", "");
-
-        foreach (var line in lines)
-        {
-            string[] values = line.Split("=");
-
-            if (values.Length < 2)
-                continue;
-
-            var row = data.NewRow();
-            row["Source"] = source;
-            row["Key"] = values[0].Trim();
-            row["Value"] = values[1].Trim();
-            data.Rows.Add(row);
-        }
     }
 
+    foreach (var langDir in directories)
+    {
+        var lang = new DirectoryInfo(langDir).Name;
+        data.Columns.Add(lang, typeof(string));
+
+        var files = Directory.GetFiles(langDir, "*.properties");
+
+        if (files.Length <= 0)
+        {
+            Console.WriteLine("No *.properties files found");
+            continue;
+        }
+        
+
+        foreach (var file in files)
+        {
+            var info = new FileInfo(file);
+            var lines = File.ReadAllLines(file);
+            
+            lines = lines
+                .Skip(1)
+                .Where(x => !String.IsNullOrWhiteSpace(x)
+                    && !x.TrimStart().StartsWith("#"))
+                .ToArray();
+
+            string source = info.Name.Replace(".properties", "");
+
+            foreach (var line in lines)
+            {
+                string[] values = line.Split("=");
+
+                if (values.Length < 2)
+                    continue;
+
+                var row = data.NewRow();
+                row["Source"] = source;
+                row["Key"] = values[0].Trim();
+                row["Value"] = values[1].Trim();
+                data.Rows.Add(row);
+            }
+        }
+    }
     using XLWorkbook wb = new XLWorkbook();
     wb.Worksheets.Add(data,"en_US");
     wb.SaveAs($"FlexLocale_{ DateTime.Now.ToString("yyyyMMddhhmmss") }.xlsx");
@@ -77,6 +95,6 @@ do
 
     // package.Dispose(); 
     // stream.Dispose();
-    //C:\Workspace\TKS\AML\LIA_FLEX\LIA-Core\src\Locale\en_US
+    //C:\Workspace\TKS\AML\LIA_FLEX\LIA-Core\src\Locale
 }
 while (exit != true);
